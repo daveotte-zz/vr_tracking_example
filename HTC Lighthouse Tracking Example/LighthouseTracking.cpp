@@ -3,7 +3,7 @@
 // 
 // By Peter Thor 2016
 //
-
+#include "stdafx.h"
 #include "LighthouseTracking.h"
 
 LighthouseTracking::~LighthouseTracking() {
@@ -210,7 +210,7 @@ void LighthouseTracking::ParseTrackingFrame() {
 			continue;
 
 		vr::VRControllerState_t state;
-		if (m_pHMD->GetControllerState(unDevice, &state))
+		if (m_pHMD->GetControllerState(unDevice, &state, sizeof(state)))
 		{
 			vr::TrackedDevicePose_t trackedDevicePose;
 			vr::TrackedDevicePose_t *devicePose = &trackedDevicePose;
@@ -237,7 +237,9 @@ void LighthouseTracking::ParseTrackingFrame() {
 				break;
 
 			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller:
-				vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, &trackedControllerPose);
+				vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
+
+
 
 				vector = GetPosition(controllerPose->mDeviceToAbsoluteTracking);
 				quaternion = GetRotation(controllerPose->mDeviceToAbsoluteTracking);
@@ -270,3 +272,6 @@ void LighthouseTracking::ParseTrackingFrame() {
 		}
 	}
 }
+
+
+
