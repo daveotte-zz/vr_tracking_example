@@ -23,7 +23,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		sprintf_s(buf, sizeof(buf), "Press 'q' to quit\n");
 		printf_s(buf);
 
-		while (lighthouseTracking->RunProcedure()) {
+		//while (lighthouseTracking->RunProcedure()) {
+		while (lighthouseTracking->RunMainLoop()) {
 
 			// Windows quit routine - adapt as you need
 			if (_kbhit()) {

@@ -6,6 +6,7 @@
 #include "stdafx.h"
 #include "LighthouseTracking.h"
 
+
 LighthouseTracking::~LighthouseTracking() {
 	if (m_pHMD != NULL)
 	{
@@ -14,11 +15,20 @@ LighthouseTracking::~LighthouseTracking() {
 	}
 }
 
-LighthouseTracking::LighthouseTracking() {
+LighthouseTracking::LighthouseTracking() 
+
+	: ControllerLeftId(-1)
+	, ControllerRightId(-1)
+	, HmdId(-1)
+	, elapsed(0)
+	, timeForOneFrame(1000)
+	, lastTime(curTime)
+{
 	vr::EVRInitError eError = vr::VRInitError_None;
 	m_pHMD = vr::VR_Init(&eError, vr::VRApplication_Background);
+	
 
-	if (eError != vr::VRInitError_None)
+	if (eError != vr::VRInitError_None) 
 	{
 		m_pHMD = NULL;
 		char buf[1024];
@@ -26,6 +36,37 @@ LighthouseTracking::LighthouseTracking() {
 		printf_s(buf);
 		exit(EXIT_FAILURE);
 	}
+}
+
+
+/*
+* Loop-listen for events then parses them (e.g. prints the to user)
+* Returns true if success or false if openvr has quit
+*/
+bool LighthouseTracking::RunMainLoop(void) {
+
+	// Process VREvent
+	vr::VREvent_t event;
+
+		// Process event
+		if (!ProcessVREvent(event)) {
+			char buf[1024];
+			sprintf_s(buf, sizeof(buf), "(OpenVR) service quit\n");
+			printf_s(buf);
+			return false;
+		}
+		
+
+		curTime = std::chrono::high_resolution_clock::now();
+		elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(curTime - lastTime);
+		if (elapsed < timeForOneFrame) return true;
+		std::cout.precision(17);
+		std::cout << timeForOneFrame.count() << std::endl;
+		lastTime = curTime;
+		PrintTransforms();
+	
+
+	return true;
 }
 
 /*
@@ -219,7 +260,7 @@ void LighthouseTracking::ParseTrackingFrame() {
 			vr::TrackedDevicePose_t *controllerPose = &trackedControllerPose;
 
 			vr::VRControllerState_t controllerState;
-			vr::VRControllerState_t *ontrollerState_ptr = &controllerState;
+			vr::VRControllerState_t *controllerState_ptr = &controllerState;
 
 			vr::HmdVector3_t vector;
 			vr::HmdQuaternion_t quaternion;
@@ -271,6 +312,83 @@ void LighthouseTracking::ParseTrackingFrame() {
 
 		}
 	}
+}
+
+
+
+void LighthouseTracking::PrintTransforms() {
+
+	
+
+	// Process SteamVR device states
+	for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++)
+	{
+		if (!m_pHMD->IsTrackedDeviceConnected(unDevice))
+			continue;
+
+		vr::VRControllerState_t state;
+		if (m_pHMD->GetControllerState(unDevice, &state, sizeof(state)))
+		{
+			vr::TrackedDevicePose_t trackedDevicePose;
+			vr::TrackedDevicePose_t *devicePose = &trackedDevicePose;
+
+			vr::TrackedDevicePose_t trackedControllerPose;
+			vr::TrackedDevicePose_t *controllerPose = &trackedControllerPose;
+
+			vr::VRControllerState_t controllerState;
+			vr::VRControllerState_t *controllerState_ptr = &controllerState;
+
+
+			vr::ETrackedDeviceClass trackedDeviceClass = vr::VRSystem()->GetTrackedDeviceClass(unDevice);
+			switch (trackedDeviceClass) {
+				//std::cout << "Checking.\n";
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_HMD:
+				//std::cout << "In HMD. \n";
+				HmdId = unDevice;
+				break;
+
+			case vr::ETrackedDeviceClass::TrackedDeviceClass_Controller:
+				vr::VRSystem()->GetControllerStateWithPose(vr::TrackingUniverseStanding, unDevice, &controllerState, sizeof(controllerState), &trackedControllerPose);
+
+				switch (vr::VRSystem()->GetControllerRoleForTrackedDeviceIndex(unDevice)) {
+				case vr::TrackedControllerRole_Invalid:
+					// invalide hand... 
+					break;
+
+				case vr::TrackedControllerRole_LeftHand:
+					ControllerRightId = unDevice;
+					break;
+
+				case vr::TrackedControllerRole_RightHand:
+					ControllerLeftId = unDevice;
+					break;
+
+				}
+
+				break;
+			}
+
+		}
+
+
+
+	}
+
+	//std::cout << "HmdId: " << HmdId  << std::endl;
+	if ((HmdId != -1) && (ControllerRightId != -1) && (ControllerLeftId != -1)) {
+		std::cout << "HmdId: " << HmdId << " ControllerRightId: " << ControllerRightId << " ControllerLeftId: " << ControllerLeftId << std::endl;
+	}
+	else
+	{
+		std::cout << "We lost one of the devices.\n";
+	}
+
+	//The ids get set every poll. This allows us to stop if we lose tracking with one of the devices.
+	HmdId = -1;
+	ControllerRightId = -1;
+	ControllerLeftId = -1;
+
+
 }
 
 
